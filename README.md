@@ -1,6 +1,6 @@
 # catgit
 
-_A Python cli tool to dump out a git project in a `cat`-esque way_
+_A Python cli tool to dump out a git project in a `cat`-esque way or to pass it along into a text editor in one file_
 
 `catgit` is a Python CLI tool designed to display the contents of a Git project in a consolidated, readable format directly in your terminal or through a specified text editor. It provides a quick overview of the project's structure, including ignored files based on your `.gitignore` settings, and can output all readable files sequentially.
 
