@@ -69,7 +69,11 @@ catgit /path/to/your/project/
 
 ## Credits
 
-`catgit` was developed by FlyingFathead with contributions from ChaosWhisperer. This tool is designed to streamline the process of reviewing project contents, making it an invaluable utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
+`catgit` was developed by FlyingFathead with contributions from ChaosWhisperer. 
+
+## About `catgit`
+
+This tool is designed to streamline the process of reviewing project contents, making it an invaluable utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
 
 ## License
 
