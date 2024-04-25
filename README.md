@@ -27,7 +27,7 @@ Example configuration (`config.ini`):
 ```ini
 [Defaults]
 output_method = editor
-editor_command = nano
+editor_command = vim
 ignore_gitignored = true
 include_tree_view_in_file = true
 ```
