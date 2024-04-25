@@ -73,7 +73,7 @@ catgit /path/to/your/project/
 
 ## About `catgit`
 
-This tool is designed to streamline the process of reviewing project contents, making it an invaluable utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
+This tool is designed to streamline the process of reviewing project contents, making it a neat little utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
 
 ## License
 
