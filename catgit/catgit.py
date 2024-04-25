@@ -2,8 +2,9 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.2"
+version_number = "0.10.3"
 
+import sys
 import tempfile
 import argparse
 import subprocess
@@ -18,9 +19,14 @@ logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %
 
 def load_config():
 
+    # Config paths // relative method
+    # local_config_path = Path(__file__).parent / 'config.ini'
+    # global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'            
+
     # Config paths
-    local_config_path = Path(__file__).parent / 'config.ini'
-    global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'            
+    script_dir = Path(__file__).resolve().parent
+    local_config_path = script_dir / 'config.ini'
+    global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'
 
     config = configparser.ConfigParser()
     config.read_dict({'Defaults': {
@@ -87,12 +93,33 @@ def generate_tree_view(path, prefix='', ignore_gitignored=True):
     return tree_output
 
 def is_git_repository(path):
-    result = subprocess.run(['git', '-C', path, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True)
-    return result.returncode == 0
+    try:
+        result = subprocess.run(['git', '-C', path, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True, check=True)
+        return result.returncode == 0
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Git command failed: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        return False
 
 def get_git_remote_url(path):
-    result = subprocess.run(['git', '-C', path, 'config', '--get', 'remote.origin.url'], capture_output=True, text=True)
-    return result.stdout.strip()
+    try:
+        result = subprocess.run(
+            ['git', '-C', path, 'config', '--get', 'remote.origin.url'],
+            capture_output=True, text=True, check=True
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+        else:
+            logging.info(f"No remote URL set for the repository at {path}.")
+            return None
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Git command failed with error: {e.stderr}")
+        return None
+    except Exception as e:
+        logging.error(f"Unexpected error when trying to get git remote URL: {e}")
+        return None
 
 def concatenate_project_files(path):
     output = ""
@@ -144,20 +171,18 @@ def is_text_file(file_path):
     try:
         with open(file_path, 'rb') as f:
             content = f.read(1024)  # Read the first 1024 bytes
-        # We consider a file to be text if more than 70% of its characters are printable text characters or whitespace
-        if content:  # Check if file is not empty
-            text_chars = {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x7f))  # ASCII control characters and printable range
+        if content:
+            text_chars = {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x7f))
             nontext_char_count = sum(1 for byte in content if byte not in text_chars)
             percentage_of_text_chars = 100 * (1 - nontext_char_count / len(content))
-            logging.debug("%s - Percentage of text characters: %.2f%%", file_path, percentage_of_text_chars)
-            is_text = percentage_of_text_chars > 70
+            return percentage_of_text_chars > 70
         else:
-            is_text = True  # Empty files are considered text files
-
-        logging.debug("File %s is considered %s", file_path, "text" if is_text else "non-text")
-        return is_text
+            return True  # Empty files are considered text files
+    except ZeroDivisionError:
+        logging.error(f"Zero division error when processing the file, skipping: {file_path}")
+        return False  # Handle the division by zero explicitly
     except Exception as e:
-        logging.error("Error reading %s: %s", file_path, str(e))
+        logging.error(f"Error reading {file_path}: {e}")
         return False
 
 def main():
