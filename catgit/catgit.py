@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.3"
+version_number = "0.10.4"
 
 import sys
 import tempfile
@@ -12,10 +12,35 @@ import os
 import mimetypes
 import configparser
 import logging
+import shutil
 from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def check_editor_availability(editor):
+    """Check if the editor is available in the system's PATH."""
+    return shutil.which(editor) is not None
+
+def get_valid_editor(current_editor):
+    """Prompt the user for a valid editor if the current one is not found."""
+    while True:
+        editor = input(f"The editor '{current_editor}' is not found. Please enter a valid editor command or press Enter to cancel: ").strip()
+        if not editor:  # User cancels the input
+            print("Editor update canceled.")
+            return None
+        if check_editor_availability(editor):
+            return editor
+        print(f"The editor '{editor}' is not available.")
+
+def update_config(config_path, section, option, value):
+    """Update the specified configuration option with a new value."""
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    config.set(section, option, value)
+    with open(config_path, 'w') as configfile:
+        config.write(configfile)
+    print(f"Configuration updated: {option} set to {value}")
 
 def load_config():
 
@@ -43,7 +68,6 @@ def load_config():
     
     return config, local_config_path if local_config_path.exists() else global_config_path
 
-
 def save_config(config, path):
     with open(path, 'w') as configfile:
         config.write(configfile)
@@ -51,7 +75,7 @@ def save_config(config, path):
 
 def setup_config():
     config, config_path = load_config()
-    print("Current settings:")
+    print(f"::: catgit v{version_number} -- current settings:")
     for section in config.sections():
         for key, value in config.items(section):
             print(f"{key}: {value}")
@@ -189,25 +213,39 @@ def main():
     parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
     parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
     parser.add_argument('--setup', action='store_true', help='Setup or modify the configuration')
+    parser.add_argument('--editor', nargs='?', const=True, default=False, help='Directly open the output in an editor, optionally specify which editor')
     args = parser.parse_args()
 
     if args.setup:
         setup_config()
         return
 
-    config, config_path = load_config() 
+    config, config_path = load_config()
     output_method = config['Defaults']['output_method']
     editor_command = config['Defaults']['editor_command']
     ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
     include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
 
-    parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
-    parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
-    args = parser.parse_args()
+
+    if args.editor:
+        output_method = 'editor'  # Override the output method to use the editor
+        if isinstance(args.editor, str):
+            editor_command = args.editor  # Use the specified editor from the command line
+
+        # Check if the specified editor is available
+        if not check_editor_availability(editor_command):
+            new_editor = get_valid_editor(editor_command)
+            if new_editor:
+                editor_command = new_editor
+                update_config(config_path, 'Defaults', 'editor_command', new_editor)
+            else:
+                print("No valid editor provided, falling back to the terminal output.")
+                output_method = 'terminal'
 
     if not is_git_repository(args.path):
         logging.error("The specified directory is not a Git repository.")
         return
+
 
     project_url = get_git_remote_url(args.path)
     tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
@@ -222,17 +260,12 @@ def main():
         logging.info("Outputting to terminal...")
         print(output)
     elif output_method == 'editor':
-        # Use tempfile to create a temporary file
-        # 'delete=False' means the file will not be deleted when closed, allowing it to be opened by an editor
+        # Use tempfile to create a temporary file and open it with the specified editor
         with tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='w+') as tmpfile:
             tmpfile.write(output)
-            tmpfile_path = tmpfile.name  # Get the path of the temporary file
-
+            tmpfile_path = tmpfile.name
         logging.info(f"Executing command: {editor_command} {tmpfile_path}")
-        os.system(f"{editor_command} {tmpfile_path}")
-
-        # Optionally, you can remove the temp file if you don't want it to persist after opening
-        # os.remove(tmpfile_path)
+        subprocess.run([editor_command, tmpfile_path], check=True)
 
     else:
         logging.debug("No output due to output method settings.")
