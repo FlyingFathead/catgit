@@ -140,8 +140,24 @@ def is_ignored_by_git(file_path):
         return False  # Assume not ignored if there's an error checking
 
 def is_text_file(file_path):
-    type_hint, _ = mimetypes.guess_type(file_path)
-    return 'text' in type_hint if type_hint else False
+    try:
+        with open(file_path, 'rb') as f:
+            content = f.read(1024)  # Read the first 1024 bytes
+        # We consider a file to be text if more than 70% of its characters are printable text characters or whitespace
+        if content:  # Check if file is not empty
+            text_chars = {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x7f))  # ASCII control characters and printable range
+            nontext_char_count = sum(1 for byte in content if byte not in text_chars)
+            percentage_of_text_chars = 100 * (1 - nontext_char_count / len(content))
+            logging.debug("%s - Percentage of text characters: %.2f%%", file_path, percentage_of_text_chars)
+            is_text = percentage_of_text_chars > 70
+        else:
+            is_text = True  # Empty files are considered text files
+
+        logging.debug("File %s is considered %s", file_path, "text" if is_text else "non-text")
+        return is_text
+    except Exception as e:
+        logging.error("Error reading %s: %s", file_path, str(e))
+        return False
 
 if __name__ == '__main__':
     main()
