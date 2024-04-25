@@ -1,6 +1,8 @@
-# catgit v0.05
+# catgit
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
+
+version_number = 0.06
 
 import argparse
 import subprocess
@@ -11,30 +13,28 @@ import logging
 from pathlib import Path
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_config():
     config = configparser.ConfigParser()
     config.read_dict({'Defaults': {
-        'output_method': 'terminal',  # Default
-        'editor_command': 'gedit',
-        'ignore_gitignored': 'true'
+        'output_method': 'terminal',  # Default to terminal
+        'editor_command': 'nano',  # Default to nano for editing
+        'ignore_gitignored': 'true',  # Default to ignoring gitignored files
+        'include_tree_view_in_file': 'true'  # Default to including tree view in the file output
     }})
-
+    # Read the actual configuration files
     local_config_path = Path(__file__).parent / 'config.ini'
     global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'
-    read_files = config.read([str(local_config_path), str(global_config_path)])
-    logging.debug("Config files read: %s", read_files)
-    logging.debug("Output method from config: %s", config['Defaults']['output_method'])
+    config.read([str(local_config_path), str(global_config_path)])
     return config
 
 def main():
     config = load_config()
     output_method = config['Defaults']['output_method']
+    editor_command = config['Defaults']['editor_command']
     ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
-
-    logging.info("Configured output method: %s", output_method)
-    logging.info("Ignore .gitignored: %s", ignore_gitignored)
+    include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
 
     parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
     parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
@@ -45,18 +45,25 @@ def main():
         return
 
     project_url = get_git_remote_url(args.path)
-    logging.info("Project URL: %s", project_url)
-
     tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
-    logging.info("\nDirectory structure:\n%s", tree_view)
 
-    # Here is the corrected line
-    output = f"Project URL: {project_url}\n\n" + concatenate_project_files(args.path)
+    # Generate the output string with or without the directory tree depending on config
+    output = f"[ catgit v{version_number} | Project URL: {project_url} ]\n\n"
+    if include_tree_view:
+        output += f"Directory structure:\n{tree_view}\n\n"
+    output += concatenate_project_files(args.path)
+
     if output_method == 'terminal':
         logging.info("Outputting to terminal...")
         print(output)
+    elif output_method == 'editor':
+        temp_file_path = '/tmp/catgit_output.txt'
+        with open(temp_file_path, 'w') as file:
+            file.write(output)
+        logging.info(f"Executing command: {editor_command} {temp_file_path}")
+        os.system(f"{editor_command} {temp_file_path}")
     else:
-        logging.debug("Output method is not terminal, output is not printed.")
+        logging.debug("No output due to output method settings.")
 
 def generate_tree_view(path, prefix='', ignore_gitignored=True):
     tree_output = ""
