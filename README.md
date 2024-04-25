@@ -1,2 +1,2 @@
 # catgit
-Python tool to dump out a git project in a `cat`-esque way
+Python cli tool to dump out a git project in a `cat`-esque way
