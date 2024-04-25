@@ -13,6 +13,23 @@ It also supports directly dumping out the entire project straight into your favo
 - **Flexible Output**: Supports output directly to the terminal or opens in a specified text editor like nano or gedit.
 - **Configurable**: Options to toggle the inclusion of the tree view in the output, and choose between terminal output and editor output through configuration.
 
+## Installation
+
+You can install `catgit` directly from the source code:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/FlyingFathead/catgit.git
+```
+2. Navigate to the cloned directory:
+```bash
+cd catgit
+```
+3. Install the package:
+```bash
+pip install .
+```
+
 ## Configuration
 
 `catgit` uses a configuration file (`config.ini`) which allows the user to set preferences such as:
@@ -39,6 +56,9 @@ To use catgit, navigate to the root directory of the project and run:
 ```bash
 python catgit.py /path/to/your/project/
 ```
+
+## Changes
+`v0.10` - initial public release w/ installer
 
 ## Credits
 
