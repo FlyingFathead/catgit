@@ -76,6 +76,7 @@ catgit /path/to/your/project/ --editor
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
 ## Changes
+- `0.10.5` - git checks more robust and verbose now
 - `0.10.4` - added `--editor` flag for sending straight to text editor, checks for editor and asks the user if not found
 - `0.10.3` - improved error catching, absolute paths
 - `0.10.2` - switched to using `tempfile` for better cross-platform compatibility

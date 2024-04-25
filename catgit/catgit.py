@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.4"
+version_number = "0.10.5"
 
 import sys
 import tempfile
@@ -118,13 +118,17 @@ def generate_tree_view(path, prefix='', ignore_gitignored=True):
 
 def is_git_repository(path):
     try:
-        result = subprocess.run(['git', '-C', path, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True, check=True)
-        return result.returncode == 0
+        result = subprocess.run(['git', '-C', path, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return True
+        else:
+            logging.error(f"Git check failed with message: {result.stderr.strip()}")
+            return False
     except subprocess.CalledProcessError as e:
-        logging.error(f"Git command failed: {e}")
+        logging.error(f"Git command exception: {e}")
         return False
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        logging.error(f"Unexpected error checking Git repository: {e}")
         return False
 
 def get_git_remote_url(path):
