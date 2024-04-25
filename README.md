@@ -30,6 +30,11 @@ cd catgit
 pip install .
 ```
 
+Alternatively, if you only want to try it out, navigate to the `catgit/` subdirectory and run it with:
+```bash
+python catgit.py /path/to/your/project/
+```
+
 ## Configuration
 
 `catgit` uses a configuration file (`config.ini`) which allows the user to set preferences such as:
@@ -54,7 +59,7 @@ include_tree_view_in_file = true
 To use catgit, navigate to the root directory of the project and run:
 
 ```bash
-python catgit.py /path/to/your/project/
+catgit /path/to/your/project/
 ```
 
 ## Changes
