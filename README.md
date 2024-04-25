@@ -4,7 +4,7 @@ _A Python cli tool to dump out a git project in a `cat`-esque way or to pass it 
 
 `catgit` is a Python CLI tool designed to display the contents of a Git project in a consolidated, readable format directly in your terminal or through a specified text editor. It provides a quick overview of the project's structure, including ignored files based on your `.gitignore` settings, and can output all readable files sequentially. 
 
-It also supports directly dumping out the entire project straight into your favorite text editor to be i.e. passed along to a LLM assistant or such.
+`catgit` also supports directly dumping out the entire project straight into your favorite text editor, i.e. to be passed along to a LLM assistant or such with the `--editor` flag. It can also be used to get the structural view of regular directories and their file contents, even if they're not Git repositories.
 
 ## Features
 
@@ -50,15 +50,26 @@ catgit --setup
 - `editor_command`: Specify which editor to use when opening the output (e.g., `vim`, `nano`, `gedit`).
 - `ignore_gitignored`: Toggle whether to ignore files as specified in `.gitignore`.
 - `include_tree_view_in_file`: Decide whether to include the directory tree structure in the concatenated file output.
+- `treat_non_git_as_error`: Decide whether to quit if the directory structure is not recognized as a Git repository.
 
 Example configuration (`config.ini`):
 
 ```ini
 [Defaults]
-output_method = editor
-editor_command = vim
+# Options: terminal, editor
+output_method = terminal
+
+# Specify the command to open the text editor
+editor_command = gedit
+
+# ignore .gitignore files
 ignore_gitignored = true
+
+# include the tree view in file printout
 include_tree_view_in_file = true
+
+# treat "non-git" directory structures as errors (= quit if true)
+treat_non_git_as_error = false
 ```
 
 ## Usage
@@ -76,7 +87,8 @@ catgit /path/to/your/project/ --editor
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
 ## Changes
-- `0.10.5` - git checks more robust and verbose now
+- `0.10.6` - added the `treat_non_git_as_error` config option
+- `0.10.5` - git checks made robust and verbose
 - `0.10.4` - added `--editor` flag for sending straight to text editor, checks for editor and asks the user if not found
 - `0.10.3` - improved error catching, absolute paths
 - `0.10.2` - switched to using `tempfile` for better cross-platform compatibility

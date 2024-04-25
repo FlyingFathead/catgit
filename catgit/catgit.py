@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.5"
+version_number = "0.10.6"
 
 import sys
 import tempfile
@@ -229,7 +229,7 @@ def main():
     editor_command = config['Defaults']['editor_command']
     ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
     include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
-
+    treat_non_git_as_error = config.getboolean('Defaults', 'treat_non_git_as_error')
 
     if args.editor:
         output_method = 'editor'  # Override the output method to use the editor
@@ -247,10 +247,14 @@ def main():
                 output_method = 'terminal'
 
     if not is_git_repository(args.path):
-        logging.error("The specified directory is not a Git repository.")
-        return
-
-
+        message = "The specified directory is not a Git repository."
+        if treat_non_git_as_error:
+            logging.error(message)
+            return
+        else:
+            logging.warning(message)
+            print("Warning: Operating in non-Git directory. Some features may not be available.")
+    
     project_url = get_git_remote_url(args.path)
     tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
 
