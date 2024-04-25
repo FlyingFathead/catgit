@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10"
+version_number = "0.10.1"
 
 import argparse
 import subprocess
@@ -16,6 +16,11 @@ from pathlib import Path
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_config():
+
+    # Config paths
+    local_config_path = Path(__file__).parent / 'config.ini'
+    global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'            
+
     config = configparser.ConfigParser()
     config.read_dict({'Defaults': {
         'output_method': 'terminal',  # Default to terminal
@@ -23,47 +28,35 @@ def load_config():
         'ignore_gitignored': 'true',  # Default to ignoring gitignored files
         'include_tree_view_in_file': 'true'  # Default to including tree view in the file output
     }})
-    # Read the actual configuration files
-    local_config_path = Path(__file__).parent / 'config.ini'
-    global_config_path = Path.home() / '.config' / 'catgit' / 'config.ini'
-    config.read([str(local_config_path), str(global_config_path)])
-    return config
 
-def main():
-    config = load_config()
-    output_method = config['Defaults']['output_method']
-    editor_command = config['Defaults']['editor_command']
-    ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
-    include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
+    # Read configuration from paths
+    read_files = config.read([str(local_config_path), str(global_config_path)])
+    if not read_files:
+        print("No config file found, using default settings.")
+    
+    return config, local_config_path if local_config_path.exists() else global_config_path
 
-    parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
-    parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
-    args = parser.parse_args()
 
-    if not is_git_repository(args.path):
-        logging.error("The specified directory is not a Git repository.")
-        return
+def save_config(config, path):
+    with open(path, 'w') as configfile:
+        config.write(configfile)
+    print(f"Configuration saved to: {path}")
 
-    project_url = get_git_remote_url(args.path)
-    tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
+def setup_config():
+    config, config_path = load_config()
+    print("Current settings:")
+    for section in config.sections():
+        for key, value in config.items(section):
+            print(f"{key}: {value}")
 
-    # Generate the output string with or without the directory tree depending on config
-    output = f"[ catgit v{version_number} | Project URL: {project_url} ]\n\n"
-    if include_tree_view:
-        output += f"Directory structure:\n{tree_view}\n\n"
-    output += concatenate_project_files(args.path)
+    print("\nModifying settings (press ENTER to keep current value)...\n")
+    for section in config.sections():
+        for key in config[section]:
+            current_value = config[section][key]
+            new_value = input(f"Enter new value for {key} ({current_value}): ").strip()
+            config[section][key] = new_value if new_value else current_value  # Only update if a new value is entered
 
-    if output_method == 'terminal':
-        logging.info("Outputting to terminal...")
-        print(output)
-    elif output_method == 'editor':
-        temp_file_path = '/tmp/catgit_output.txt'
-        with open(temp_file_path, 'w') as file:
-            file.write(output)
-        logging.info(f"Executing command: {editor_command} {temp_file_path}")
-        os.system(f"{editor_command} {temp_file_path}")
-    else:
-        logging.debug("No output due to output method settings.")
+    save_config(config, config_path) 
 
 def generate_tree_view(path, prefix='', ignore_gitignored=True):
     tree_output = ""
@@ -165,6 +158,51 @@ def is_text_file(file_path):
     except Exception as e:
         logging.error("Error reading %s: %s", file_path, str(e))
         return False
+
+def main():
+    parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
+    parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
+    parser.add_argument('--setup', action='store_true', help='Setup or modify the configuration')
+    args = parser.parse_args()
+
+    if args.setup:
+        setup_config()
+        return
+
+    config, config_path = load_config() 
+    output_method = config['Defaults']['output_method']
+    editor_command = config['Defaults']['editor_command']
+    ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
+    include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
+
+    parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
+    parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
+    args = parser.parse_args()
+
+    if not is_git_repository(args.path):
+        logging.error("The specified directory is not a Git repository.")
+        return
+
+    project_url = get_git_remote_url(args.path)
+    tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
+
+    # Generate the output string with or without the directory tree depending on config
+    output = f"[ catgit v{version_number} | Project URL: {project_url} ]\n\n"
+    if include_tree_view:
+        output += f"Directory structure:\n{tree_view}\n\n"
+    output += concatenate_project_files(args.path)
+
+    if output_method == 'terminal':
+        logging.info("Outputting to terminal...")
+        print(output)
+    elif output_method == 'editor':
+        temp_file_path = '/tmp/catgit_output.txt'
+        with open(temp_file_path, 'w') as file:
+            file.write(output)
+        logging.info(f"Executing command: {editor_command} {temp_file_path}")
+        os.system(f"{editor_command} {temp_file_path}")
+    else:
+        logging.debug("No output due to output method settings.")
 
 if __name__ == '__main__':
     main()

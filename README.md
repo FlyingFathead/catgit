@@ -39,6 +39,11 @@ python catgit.py /path/to/your/project/
 
 ## Configuration
 
+For quick setup after installation, just use:
+```bash
+catgit --setup
+```
+
 `catgit` uses a configuration file (`config.ini`) which allows the user to set preferences such as:
 
 - `output_method`: Choose between `terminal` and `editor` to display the project output.
@@ -65,6 +70,7 @@ catgit /path/to/your/project/
 ```
 
 ## Changes
+`v0.10.1` - added the `--setup` flag for quick setup in cli
 `v0.10` - initial public release w/ installer
 
 ## Credits
