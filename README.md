@@ -70,6 +70,7 @@ catgit /path/to/your/project/
 ```
 
 ## Changes
+- `v0.10.2` - switched to using `tempfile` for better cross-platform compatibility
 - `v0.10.1` - added the `--setup` flag for quick setup in cli
 - `v0.10` - initial public release w/ installer
 

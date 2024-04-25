@@ -2,8 +2,9 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.1"
+version_number = "0.10.2"
 
+import tempfile
 import argparse
 import subprocess
 import os
@@ -196,11 +197,18 @@ def main():
         logging.info("Outputting to terminal...")
         print(output)
     elif output_method == 'editor':
-        temp_file_path = '/tmp/catgit_output.txt'
-        with open(temp_file_path, 'w') as file:
-            file.write(output)
-        logging.info(f"Executing command: {editor_command} {temp_file_path}")
-        os.system(f"{editor_command} {temp_file_path}")
+        # Use tempfile to create a temporary file
+        # 'delete=False' means the file will not be deleted when closed, allowing it to be opened by an editor
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='w+') as tmpfile:
+            tmpfile.write(output)
+            tmpfile_path = tmpfile.name  # Get the path of the temporary file
+
+        logging.info(f"Executing command: {editor_command} {tmpfile_path}")
+        os.system(f"{editor_command} {tmpfile_path}")
+
+        # Optionally, you can remove the temp file if you don't want it to persist after opening
+        # os.remove(tmpfile_path)
+
     else:
         logging.debug("No output due to output method settings.")
 
