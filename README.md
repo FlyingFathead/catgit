@@ -27,14 +27,16 @@ Example configuration (`config.ini`):
 output_method = editor
 editor_command = nano
 ignore_gitignored = true
-include_tree_view_in_file = true```
+include_tree_view_in_file = true
+```
 
 ## Usage
 
 To use catgit, navigate to the root directory of the project and run:
 
 ```bash
-python catgit.py /path/to/your/project/```
+python catgit.py /path/to/your/project/
+```
 
 ## Credits
 
