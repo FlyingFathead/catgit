@@ -30,7 +30,9 @@ cd catgit
 pip install .
 ```
 
-Alternatively, if you only want to try it out, navigate to the `catgit/` subdirectory and run it with:
+### Using without install
+
+Alternatively, if you only want to try out `catgit`, navigate to the `catgit/` subdirectory and run it with:
 ```bash
 python catgit.py /path/to/your/project/
 ```
