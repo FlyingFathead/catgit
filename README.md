@@ -42,7 +42,7 @@ python catgit.py /path/to/your/project/
 `catgit` uses a configuration file (`config.ini`) which allows the user to set preferences such as:
 
 - `output_method`: Choose between `terminal` and `editor` to display the project output.
-- `editor_command`: Specify which editor to use when opening the output (e.g., `nano`, `gedit`).
+- `editor_command`: Specify which editor to use when opening the output (e.g., `vim`, `nano`, `gedit`).
 - `ignore_gitignored`: Toggle whether to ignore files as specified in `.gitignore`.
 - `include_tree_view_in_file`: Decide whether to include the directory tree structure in the concatenated file output.
 
