@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.6"
+version_number = "0.10.7"
 
 import sys
 import tempfile
@@ -14,6 +14,7 @@ import configparser
 import logging
 import shutil
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -149,6 +150,38 @@ def get_git_remote_url(path):
         logging.error(f"Unexpected error when trying to get git remote URL: {e}")
         return None
 
+# testing with threading
+def process_file(full_path):
+    """Process individual file to get content and metadata."""
+    try:
+        with open(full_path, 'r', errors='ignore') as file:
+            content = file.read()
+        file_size = os.stat(full_path).st_size
+        num_lines = content.count('\n')
+        return f"\n==== [ {full_path} | Size: {file_size} bytes | Lines: {num_lines} ] ====\n{content}\n"
+    except Exception as e:
+        return f"\n==== [ {full_path} ] ==== SKIPPED (Error: {str(e)})\n"
+
+# concatenate w/ threading
+def concatenate_project_files_with_threads(path):
+    """Use threads to process files and concatenate output."""
+    output = []
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for root, dirs, files in os.walk(path, topdown=True):
+            dirs[:] = [d for d in dirs if d != '.git' and not is_ignored_by_git(os.path.join(root, d))]
+            files = [f for f in files if not is_ignored_by_git(os.path.join(root, f)) and is_text_file(os.path.join(root, f))]
+            for file in files:
+                full_path = os.path.join(root, file)
+                futures.append(executor.submit(process_file, full_path))
+        for future in futures:
+            try:
+                output.append(future.result())
+            except Exception as e:
+                logging.error(f"Failed to process a file with threading: {e}")
+    return ''.join(output)
+
+# regular/old concatenate version (no threading)
 def concatenate_project_files(path):
     output = ""
     logging.debug("Starting to concatenate files at %s", path)
@@ -262,7 +295,12 @@ def main():
     output = f"[ catgit v{version_number} | Project URL: {project_url} ]\n\n"
     if include_tree_view:
         output += f"Directory structure:\n{tree_view}\n\n"
-    output += concatenate_project_files(args.path)
+    
+    # non-threaded (old version)
+    # output += concatenate_project_files(args.path)
+
+    # threaded concatenate
+    output += concatenate_project_files_with_threads(args.path)
 
     if output_method == 'terminal':
         logging.info("Outputting to terminal...")
