@@ -87,6 +87,7 @@ catgit /path/to/your/project/ --editor
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
 ## Changes
+- `0.10.8` - output clarification to minimize LLM confusion and `--version`
 - `0.10.7` - added `ThreadPoolExecutor` for faster performance; file sizes; line counting
 - `0.10.6` - added the `treat_non_git_as_error` (true/false) config option
 - `0.10.5` - git checks made robust and verbose

@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.10.7"
+version_number = "0.10.8"
 
 import sys
 import tempfile
@@ -251,6 +251,7 @@ def main():
     parser.add_argument('path', nargs='?', default='.', help='Path to the Git project root')
     parser.add_argument('--setup', action='store_true', help='Setup or modify the configuration')
     parser.add_argument('--editor', nargs='?', const=True, default=False, help='Directly open the output in an editor, optionally specify which editor')
+    parser.add_argument('--version', action='version', version=f'catgit {version_number} - https://github.com/FlyingFathead/catgit', help='Show the version number and exit')    
     args = parser.parse_args()
 
     if args.setup:
@@ -292,7 +293,7 @@ def main():
     tree_view = generate_tree_view(args.path, ignore_gitignored=ignore_gitignored)
 
     # Generate the output string with or without the directory tree depending on config
-    output = f"[ catgit v{version_number} | Project URL: {project_url} ]\n\n"
+    output = f"[ Project overview generated using `catgit` (v{version_number}) | Original Project URL: {project_url} ]\n\n"
     if include_tree_view:
         output += f"Directory structure:\n{tree_view}\n\n"
     
