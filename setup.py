@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='catgit',
-    version='0.10.8',
+    version='0.11.0',
     author='FlyingFathead',
     author_email='flyingfathead@protonmail.com',
     packages=find_packages(),

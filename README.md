@@ -8,6 +8,9 @@ _A Python cli tool to dump out a git project in a `cat`-esque way or to pass it 
 
 ## Features
 
+- **`.catgitignore`**: (New) Read and respect `.catgitignore` files to skip over additional files or directories specific to `catgit` outputs.
+    - Further reduces extra context clutter during printouts. 
+    - Can be used the same way as `.gitignore` files.
 - **Project Overview**: Outputs the complete directory and file structure of your Git project.
 - **Gitignore Respect**: Respects `.gitignore` files to skip over ignored files or directories.
 - **Flexible Output**: Supports output directly to the terminal or opens in a specified text editor like nano or gedit.
@@ -87,6 +90,9 @@ catgit /path/to/your/project/ --editor
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
 ## Changes
+- `0.11.0` - added `.catgitignore` functionality to ignore files
+    - works the same way as `.gitignore`, is useful for selective project outputs
+    - also added `debug_mode` (true/false) flag into `config.ini` for verbose mode
 - `0.10.8` - output clarification to minimize LLM confusion and `--version`
 - `0.10.7` - added `ThreadPoolExecutor` for faster performance; file sizes; line counting
 - `0.10.6` - added the `treat_non_git_as_error` (true/false) config option
