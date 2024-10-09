@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.11.0"
+version_number = "0.11.1"
 
 import sys
 import tempfile
@@ -15,6 +15,7 @@ import shutil
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import fnmatch
+import re
 
 # Initial placeholder for logging configuration
 # It will be set after loading the config
@@ -60,7 +61,7 @@ def load_config():
         'catgitignore_file': '.catgitignore',  # Default .catgitignore file name
         'markup_catgitignored_files': 'true',  # Default to marking up ignored files
         'display_catgitignored_files': 'true',   # Default to displaying ignored files
-        'always_exclude_dirs': '.git, __pycache__, .venv, env, venv, build, dist, catgit.egg-info',  # Default excluded dirs
+        'always_exclude_dirs': '.git,__pycache__,.venv,env,venv,build,dist,catgit.egg-info',  # Default excluded dirs
         'debug_mode': 'false'  # Default to false
     }})
 
@@ -91,66 +92,6 @@ def setup_config():
             config[section][key] = new_value if new_value else current_value  # Only update if a new value is entered
 
     save_config(config, config_path) 
-
-def generate_tree_view(path, prefix='', catgitignore_patterns=None, 
-                      root_path=None, markup_catgitignored_files=True, 
-                      display_catgitignored_files=True, always_exclude_dirs=None):
-    if root_path is None:
-        root_path = path
-
-    if always_exclude_dirs is None:
-        always_exclude_dirs = []
-
-    tree_output = ""
-    try:
-        entries = sorted(os.listdir(path))
-    except OSError as e:
-        logger.error("Error listing directory %s: %s", path, e)
-        return ''
-
-    for index, entry in enumerate(entries):
-        full_path = os.path.join(path, entry)
-
-        # Exclude directories listed in always_exclude_dirs
-        if os.path.isdir(full_path) and entry in always_exclude_dirs:
-            logger.debug(f"Excluding directory: {entry}")
-            continue  # Skip processing this directory entirely
-
-        # Determine if the entry is ignored by Git
-        if is_ignored_by_git(full_path):
-            continue  # Skip Git ignored files and directories
-
-        # Determine if the entry is ignored by .catgitignore
-        is_catgit_ignored = is_ignored_by_catgit(full_path, catgitignore_patterns, root_path)
-
-        if is_catgit_ignored:
-            if not display_catgitignored_files:
-                continue  # Skip ignored files if not displaying them
-            if markup_catgitignored_files:
-                display_entry = f"# (catgit ignored) {entry}"
-            else:
-                display_entry = entry
-        else:
-            display_entry = entry
-
-        connector = '├──' if index < len(entries) - 1 else '└──'
-        if os.path.isdir(full_path):
-            tree_output += f"{prefix}{connector} {display_entry}/\n"
-            # Recursively generate tree view, appending output
-            sub_tree = generate_tree_view(
-                full_path,
-                prefix + ('│   ' if index < len(entries) - 1 else '    '),
-                catgitignore_patterns,
-                root_path,
-                markup_catgitignored_files,
-                display_catgitignored_files,
-                always_exclude_dirs  # Pass the exclusion list down
-            )
-            tree_output += sub_tree
-        else:
-            tree_output += f"{prefix}{connector} {display_entry}\n"
-
-    return tree_output
 
 def is_git_repository(path):
     try:
@@ -186,48 +127,57 @@ def get_git_remote_url(path):
         return "No remote URL found."
 
 def parse_catgitignore(catgitignore_path):
-    """Parse the .catgitignore file and return a list of patterns."""
+    """Parse the .catgitignore file and return a list of compiled regex patterns."""
     patterns = []
     try:
         with open(catgitignore_path, 'r') as f:
-            for line in f:
+            for line_number, line in enumerate(f, 1):
                 line = line.strip()
                 if line and not line.startswith('#'):
-                    patterns.append(line)
-        logger.debug(f"Parsed .catgitignore with patterns: {patterns}")
+                    # Convert glob patterns to regex
+                    regex = fnmatch.translate(line)
+                    try:
+                        patterns.append(re.compile(regex))
+                    except re.error as e:
+                        logger.error(f"Invalid pattern in .catgitignore at line {line_number}: '{line}'. Error: {e}")
     except FileNotFoundError:
         logger.warning(f"{catgitignore_path} not found.")
     except Exception as e:
         logger.error(f"Error reading {catgitignore_path}: {e}")
+    logger.debug(f"Parsed .catgitignore with {len(patterns)} compiled patterns.")
     return patterns
 
-def is_ignored_by_git(file_path):
-    """Determine if a file is ignored by Git's .gitignore."""
-    try:
-        result = subprocess.run(['git', 'check-ignore', '-q', file_path],
-                                capture_output=True, text=True)
-        # -q option suppresses output; we check the return code
-        is_ignored = result.returncode == 0
-        if is_ignored:
-            logger.debug("Ignoring %s due to .gitignore rules.", file_path)
-        else:
-            logger.debug("%s is not ignored by .gitignore.", file_path)
-        return is_ignored
-    except subprocess.CalledProcessError as e:
-        logger.error("Failed to check if %s is ignored by git: %s", file_path, e)
-        return False  # Assume not ignored if there's an error checking
-    except Exception as e:
-        logger.error(f"Unexpected error checking ignore status for {file_path}: {e}")
-        return False  # Assume not ignored if there's an unexpected error
+def get_all_files(path):
+    """Generator to yield all file paths relative to the root path."""
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            yield os.path.relpath(os.path.join(root, file), start=path)
 
-def is_ignored_by_catgit(file_path, patterns, root_path):
-    """Determine if a file should be ignored based on .catgitignore patterns."""
-    if not patterns:
-        return False
-    relative_path = os.path.relpath(file_path, start=root_path)
-    for pattern in patterns:
-        if fnmatch.fnmatch(relative_path, pattern):
-            logger.debug(f"Ignoring {file_path} due to .catgitignore pattern: {pattern}")
+def get_all_git_ignored_files(path):
+    """Retrieve all Git ignored files in the repository."""
+    ignored_files = set()
+    try:
+        # Use git check-ignore with --stdin and -z for null-separated output
+        git_cmd = ['git', '-C', path, 'check-ignore', '-z', '--stdin']
+        process = subprocess.Popen(git_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        all_files = '\0'.join(get_all_files(path))  # Corrected separator from '\n' to '\0'
+        stdout, stderr = process.communicate(input=all_files)
+        if process.returncode in [0, 1]:  # 0: some ignored files, 1: no ignored files
+            ignored_files = set(stdout.strip().split('\0')) if stdout.strip() else set()
+            # Removed os.path.relpath since paths are already relative
+            ignored_files = {f for f in ignored_files if f}
+            logger.debug(f"Retrieved {len(ignored_files)} Git ignored files.")
+        else:
+            logger.error(f"Git check-ignore failed with stderr: {stderr.strip()}")
+    except Exception as e:
+        logger.error(f"Error retrieving Git ignored files: {e}")
+    return ignored_files
+
+def is_catgit_ignored(relative_path, compiled_patterns):
+    """Determine if a file should be ignored based on compiled .catgitignore patterns."""
+    for pattern in compiled_patterns:
+        if pattern.match(relative_path):
+            logger.debug(f"Ignoring {relative_path} due to .catgitignore pattern: {pattern.pattern}")
             return True
     return False
 
@@ -261,59 +211,96 @@ def process_file(full_path):
     except Exception as e:
         return f"\n==== [ {full_path} ] ==== SKIPPED (Error: {str(e)})\n"
 
-def concatenate_project_files_with_threads(path, catgitignore_patterns=None, root_path=None, 
-                                          display_catgitignored_files=True, 
-                                          markup_catgitignored_files=True, 
-                                          always_exclude_dirs=None):
-    """Use threads to process files and concatenate output."""
-    if root_path is None:
-        root_path = path
+def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patterns, include_tree_view, 
+                                 markup_catgitignored_files, display_catgitignored_files, always_exclude_dirs):
+    """Traverse the directory once to generate tree view and concatenate file contents."""
+    tree_output = ""
+    concatenated_output = []
+    futures = []
+    files_to_skip = {'.gitignore', '.catgitignore'}
 
-    if always_exclude_dirs is None:
-        always_exclude_dirs = []
+    def traverse(current_path, prefix=''):
+        nonlocal tree_output, concatenated_output
+        try:
+            entries = sorted(os.listdir(current_path))
+        except OSError as e:
+            logger.error(f"Error listing directory {current_path}: {e}")
+            return
 
-    output = []
-    with ThreadPoolExecutor() as executor:
-        futures = []
-        for root, dirs, files in os.walk(path, topdown=True):
-            # Exclude directories listed in always_exclude_dirs
-            dirs[:] = [d for d in dirs if d not in always_exclude_dirs]
-            logger.debug(f"Currently processing directory: {root}")
-            logger.debug(f"Directories after exclusion: {dirs}")
+        # Filter out always_exclude_dirs
+        entries = [e for e in entries if not (os.path.isdir(os.path.join(current_path, e)) and e in always_exclude_dirs)]
 
-            # Remove '.git' if present (redundant if '.git' is in always_exclude_dirs)
-            if '.git' in dirs:
-                dirs.remove('.git')  # Prevent walking into .git
+        # Total entries count
+        total_entries = len(entries)
+        for index, entry in enumerate(entries):
+            full_path = os.path.join(current_path, entry)
+            relative_path = os.path.relpath(full_path, start=path)
 
-            for file in files:
-                full_path = os.path.join(root, file)
+            # Determine if it's the last entry
+            is_last = (index == total_entries - 1)
+            connector = '└──' if is_last else '├──'
 
-                # Determine if the file is ignored by Git
-                if is_ignored_by_git(full_path):
-                    continue  # Skip Git ignored files
+            if os.path.isdir(full_path):
+                # Exclude directories ignored by Git
+                if relative_path in ignored_git_files:
+                    continue  # Skip ignored directories
 
-                # Determine if the file is ignored by .catgitignore
-                is_catgit_ignored = is_ignored_by_catgit(full_path, catgitignore_patterns, root_path)
+                # Exclude directories matched by .catgitignore
+                if compiled_catgit_patterns and is_catgit_ignored(relative_path, compiled_catgit_patterns):
+                    if display_catgitignored_files:
+                        if markup_catgitignored_files:
+                            tree_output += f"{prefix}{connector} # (catgit ignored) {entry}/\n"
+                        else:
+                            tree_output += f"{prefix}{connector} {entry}/\n"
+                    continue
 
-                if is_catgit_ignored:
-                    if not display_catgitignored_files:
-                        continue  # Skip ignored files if not displaying them
-                    else:
-                        # Mark as ignored but do not include content
-                        output.append(f"\n==== [ # (catgit ignored) {file} ] ==== SKIPPED (Ignored File)\n")
-                        continue
+                # Add directory to tree view
+                tree_output += f"{prefix}{connector} {entry}/\n"
 
+                # Prepare the prefix for the next level
+                extension = '    ' if is_last else '│   '
+
+                # Recursive traversal
+                traverse(full_path, prefix + extension)
+            else:
+                # Skip processing .gitignore and .catgitignore files
+                if entry in files_to_skip:
+                    continue
+
+                # Exclude files ignored by Git
+                if relative_path in ignored_git_files:
+                    continue  # Skip ignored files
+
+                # Check if file is ignored by .catgitignore
+                if compiled_catgit_patterns and is_catgit_ignored(relative_path, compiled_catgit_patterns):
+                    if display_catgitignored_files:
+                        if markup_catgitignored_files:
+                            tree_output += f"{prefix}{connector} # (catgit ignored) {entry}\n"
+                        else:
+                            tree_output += f"{prefix}{connector} {entry}\n"
+                    continue
+
+                # Determine if the file is a text file
                 if is_text_file(full_path):
+                    # Submit file processing to thread pool
                     futures.append(executor.submit(process_file, full_path))
+                    # Add to tree view
+                    tree_output += f"{prefix}{connector} {entry}\n"
                 else:
-                    output.append(f"\n==== [ {file} ] ==== SKIPPED (Binary or Ignored File)\n")
+                    # Binary or other non-text file
+                    tree_output += f"{prefix}{connector} {entry} [Binary/Non-text]\n"
 
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        traverse(path)
+
+        # Collect the results from thread pool
         for future in futures:
             try:
-                output.append(future.result())
+                concatenated_output.append(future.result())
             except Exception as e:
                 logger.error(f"Failed to process a file with threading: {e}")
-    return ''.join(output)
+
+    return tree_output, ''.join(concatenated_output)
 
 def main():
     parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
@@ -384,19 +371,29 @@ def main():
 
     # Get .catgitignore patterns if enabled
     if catgitignore_enabled:
-        catgitignore_patterns = parse_catgitignore(os.path.join(args.path, catgitignore_file))
+        catgitignore_path = os.path.join(args.path, catgitignore_file)
+        compiled_catgit_patterns = parse_catgitignore(catgitignore_path)
     else:
-        catgitignore_patterns = None
+        compiled_catgit_patterns = None
+
+    # Retrieve all Git ignored files once
+    if is_git_repository(args.path):
+        ignored_git_files = get_all_git_ignored_files(args.path)
+    else:
+        ignored_git_files = set()
 
     tree_view = ""
-    if include_tree_view:
-        tree_view = generate_tree_view(
+    concatenated_output = ""
+    if include_tree_view or output_method == 'terminal':
+        # Generate tree view and concatenate file contents in a single traversal
+        tree_view, concatenated_output = concatenate_and_generate_tree(
             args.path,
-            catgitignore_patterns=catgitignore_patterns,
-            root_path=args.path,
-            markup_catgitignored_files=markup_catgitignored_files,
-            display_catgitignored_files=display_catgitignored_files,
-            always_exclude_dirs=always_exclude_dirs  # Pass the exclusion list
+            ignored_git_files,
+            compiled_catgit_patterns,
+            include_tree_view,
+            markup_catgitignored_files,
+            display_catgitignored_files,
+            always_exclude_dirs
         )
 
     # Generate the output string
@@ -404,16 +401,8 @@ def main():
     if include_tree_view:
         output += f"Directory structure:\n{tree_view}\n\n"
 
-    # Threaded concatenate
-    concatenated_output = concatenate_project_files_with_threads(
-        args.path,
-        catgitignore_patterns=catgitignore_patterns,
-        root_path=args.path,
-        display_catgitignored_files=display_catgitignored_files,
-        markup_catgitignored_files=markup_catgitignored_files,
-        always_exclude_dirs=always_exclude_dirs  # Pass the exclusion list
-    )
-    output += concatenated_output
+    if concatenated_output:
+        output += concatenated_output
 
     if output_method == 'terminal':
         logger.info("Outputting to terminal...")

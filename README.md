@@ -90,6 +90,7 @@ catgit /path/to/your/project/ --editor
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
 ## Changes
+- `0.11.1` - subprocess optimization (speeds up `catgit` on larger projects)
 - `0.11.0` - added `.catgitignore` functionality to ignore files
     - works the same way as `.gitignore`, is useful for selective project outputs
     - also added `debug_mode` (true/false) flag into `config.ini` for verbose mode
