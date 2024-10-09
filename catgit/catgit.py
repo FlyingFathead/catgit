@@ -141,7 +141,7 @@ def parse_catgitignore(catgitignore_path):
                     except re.error as e:
                         logger.error(f"Invalid pattern in .catgitignore at line {line_number}: '{line}'. Error: {e}")
     except FileNotFoundError:
-        logger.warning(f"{catgitignore_path} not found.")
+        logger.info(f"No `.catgitignore` file at: {catgitignore_path}")
     except Exception as e:
         logger.error(f"Error reading {catgitignore_path}: {e}")
     logger.debug(f"Parsed .catgitignore with {len(patterns)} compiled patterns.")
