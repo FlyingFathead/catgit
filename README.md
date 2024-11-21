@@ -10,9 +10,9 @@
 
 ## Features
 
-- **`.catgitignore`**: (New) Read and respect `.catgitignore` files to skip over additional files or directories specific to `catgit` outputs.
-    - Further reduces extra context clutter during printouts. 
-    - Can be used the same way as `.gitignore` files.
+- **`.catgitignore`** and **`.catgitinclude`**:
+    - `.catgitignore`: read and respect files to skip over additional files or directories specific to `catgit` outputs. Works the same way as `.gitignore` does.
+    - `.catgitinclude`: when `--includedonly` command line flag is in use, only the files listed in the include file will be included in the printout.
 - **Project Overview**: Outputs the complete directory and file structure of your Git project.
 - **Gitignore Respect**: Respects `.gitignore` files to skip over ignored files or directories.
 - **Flexible Output**: Supports output directly to the terminal or opens in a specified text editor like nano or gedit.
