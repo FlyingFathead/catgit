@@ -177,22 +177,20 @@ def get_all_files(path):
             yield os.path.relpath(os.path.join(root, file), start=path)
 
 def get_all_git_ignored_files(path):
-    """Retrieve all Git ignored files in the repository."""
+    """Retrieve all Git-ignored files in the repository."""
     ignored_files = set()
     try:
-        # Use git check-ignore with --stdin and -z for null-separated output
-        git_cmd = ['git', '-C', path, 'check-ignore', '-z', '--stdin']
-        process = subprocess.Popen(git_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        all_files = '\0'.join(get_all_files(path))
-        stdout, stderr = process.communicate(input=all_files)
-        if process.returncode in [0, 1]:  # 0: some ignored files, 1: no ignored files
-            ignored_files = set(stdout.strip().split('\0')) if stdout.strip() else set()
-            ignored_files = {f for f in ignored_files if f}
-            logger.debug(f"Retrieved {len(ignored_files)} Git ignored files.")
-        else:
-            logger.error(f"Git check-ignore failed with stderr: {stderr.strip()}")
+        # Use git ls-files to list all ignored files
+        git_cmd = ['git', '-C', path, 'ls-files', '--others', '--ignored', '--exclude-standard']
+        result = subprocess.run(git_cmd, capture_output=True, text=True, check=True)
+        # Process output
+        if result.stdout.strip():
+            ignored_files = set(result.stdout.strip().split('\n'))
+        logger.debug(f"Retrieved {len(ignored_files)} Git-ignored files.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Git command failed: {e.stderr}")
     except Exception as e:
-        logger.error(f"Error retrieving Git ignored files: {e}")
+        logger.error(f"Unexpected error while retrieving Git-ignored files: {e}")
     return ignored_files
 
 def get_included_files_and_dirs(path, compiled_include_patterns):
@@ -295,8 +293,15 @@ def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patte
                     continue
 
                 # Exclude directories ignored by Git
-                if entry_relative_path in ignored_git_files:
-                    continue  # Skip ignored directories
+                # if entry_relative_path in ignored_git_files:
+                #     continue  # Skip ignored directories
+
+                if any(
+                    Path(entry_relative_path).match(ignored_pattern)
+                    for ignored_pattern in ignored_git_files
+                ):
+                    logger.debug(f"Skipping ignored file: {entry_relative_path}")
+                    continue
 
                 # Exclude directories matched by .catgitignore
                 if compiled_catgit_patterns and is_catgit_ignored(entry_relative_path, compiled_catgit_patterns):
