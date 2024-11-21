@@ -1,5 +1,7 @@
 # ignore tests
 catgit/tests/
+catgit/catgit_test.py
+catgit/catgit_test2.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
