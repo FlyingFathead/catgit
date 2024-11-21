@@ -2,7 +2,7 @@
 # https://github.com/FlyingFathead/catgit
 # 2024 -/- FlyingFathead (w/ ChaosWhisperer)
 
-version_number = "0.11.3"
+version_number = "0.11.4"
 
 import sys
 import tempfile
@@ -65,7 +65,9 @@ def load_config():
         'debug_mode': 'false',  # Default to false
         'catgitinclude_enabled': 'true',  # Default to enabled
         'catgitinclude_file': '.catgitinclude',  # Default .catgitinclude file name
-        'hide_nonexistent_gitignored': 'false'  # Whether to skip non-existent ignored files        
+        'hide_nonexistent_gitignored': 'false',  # Whether to skip non-existent ignored files        
+        'use_extra_delimiter': 'true',  # Default to using an extra per-file delimiter
+        'extra_delimiter_type': '~~~'  # Default to tildes for extra delimiter
     }})
 
     # Read configuration from paths
@@ -178,16 +180,16 @@ def get_all_files(path):
             yield os.path.relpath(os.path.join(root, file), start=path)
 
 def get_all_git_ignored_files(path):
-    """Retrieve all Git-ignored files in the repository."""
+    """Retrieve all Git-ignored files and directories in the repository."""
     ignored_files = set()
     try:
-        # Use git ls-files to list all ignored files
-        git_cmd = ['git', '-C', path, 'ls-files', '--others', '--ignored', '--exclude-standard']
+        # Use git ls-files to list all ignored files and directories
+        git_cmd = ['git', '-C', path, 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory']
         result = subprocess.run(git_cmd, capture_output=True, text=True, check=True)
         if result.stdout.strip():
-            # Convert to a set of relative paths
-            ignored_files = set(result.stdout.strip().split('\n'))
-        logger.debug(f"Retrieved {len(ignored_files)} Git-ignored files: {ignored_files}")
+            # Convert to a set of normalized relative paths
+            ignored_files = set(os.path.normpath(file) for file in result.stdout.strip().split('\n'))
+        logger.debug(f"Retrieved {len(ignored_files)} Git-ignored files and directories: {ignored_files}")
     except subprocess.CalledProcessError as e:
         logger.error(f"Git command failed: {e.stderr}")
     except Exception as e:
@@ -247,21 +249,58 @@ def is_text_file(file_path):
         logger.error(f"Error reading {file_path}: {e}")
         return False
 
-def process_file(full_path):
+def process_file(full_path, extra_delimiter):
     """Process individual file to get content and metadata."""
     try:
         with open(full_path, 'r', errors='ignore') as file:
             content = file.read()
         file_size = os.stat(full_path).st_size
         num_lines = content.count('\n')
-        return f"\n==== [ {full_path} | Size: {file_size} bytes | Lines: {num_lines} ] ====\n{content}\n"
+        
+        # Extract file extension for syntax highlighting
+        _, ext = os.path.splitext(full_path)
+        ext = ext.lstrip('.').lower()  # Remove the dot and convert to lowercase
+
+        # Map common extensions to language identifiers
+        language_mapping = {
+            'md': 'markdown',
+            'py': 'python',
+            'js': 'javascript',
+            'ts': 'typescript',
+            'rb': 'ruby',
+            'go': 'go',
+            'rs': 'rust',
+            'php': 'php',
+            'kt': 'kotlin',
+            'swift': 'swift',
+            'scala': 'scala',
+            'lua': 'lua',
+            'sql': 'sql',
+            'yml': 'yaml',
+            'yaml': 'yaml',
+            'ini': 'ini',
+            # Add more extensions as needed
+        }
+
+        language = language_mapping.get(ext, '')  # Default to empty string if unknown
+
+        # Check if delimiter is enabled
+        if extra_delimiter:
+            # Use the delimiter from configuration
+            content_block = f"{extra_delimiter}{language}\n{content}\n{extra_delimiter}"
+        else:
+            content_block = content
+
+        return f"\n==== [ {full_path} | Size: {file_size} bytes | Lines: {num_lines} ] ====\n{content_block}\n"
     except Exception as e:
         return f"\n==== [ {full_path} ] ==== SKIPPED (Error: {str(e)})\n"
 
 def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patterns, include_tree_view,
                                   markup_catgitignored_files, display_catgitignored_files, always_exclude_dirs,
+                                  ignore_gitignored, display_gitignored_files,
                                   include_only=False, included_files=None, included_dirs=None,
-                                  hide_nonexistent_gitignored=False):
+                                  hide_nonexistent_gitignored=False, extra_delimiter=''):
+
     """Traverse the directory once to generate tree view and concatenate file contents."""
     tree_output = ""
     concatenated_output = []
@@ -288,26 +327,36 @@ def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patte
         ]
 
         total_entries = len(entries)
+
         for index, entry in enumerate(entries):
             full_path = os.path.join(current_path, entry)
             entry_relative_path = os.path.join(relative_path, entry) if relative_path else entry
+            entry_relative_path = os.path.normpath(entry_relative_path)  # Normalize the path
 
             is_last = (index == total_entries - 1)
             connector = '└──' if is_last else '├──'
 
-            # Strict inclusion logic
+            # Enforce strict inclusion for directories
             if include_only:
-                # Skip files and directories not explicitly included
                 if entry_relative_path not in included_files and entry_relative_path not in included_dirs:
                     continue
+
+            # Check for Git-ignored files and directories
+            if ignore_gitignored and entry_relative_path in ignored_git_files:
+                if display_gitignored_files:
+                    if os.path.isdir(full_path):
+                        tree_output += f"{prefix}{connector} {entry}/ # (Git-ignored)\n"
+                    else:
+                        tree_output += f"{prefix}{connector} {entry} # (Git-ignored)\n"
+                continue  # Skip processing this entry
 
             # Check if file/directory is catgit-ignored
             if compiled_catgit_patterns and is_catgit_ignored(entry_relative_path, compiled_catgit_patterns):
                 if display_catgitignored_files:
-                    tree_output += f"{prefix}{connector} {entry}/ # (catgit-ignored)" if os.path.isdir(full_path) else f"{prefix}{connector} {entry} # (catgit-ignored)"
-                    if not os.path.exists(full_path) and not hide_nonexistent_gitignored:
-                        tree_output += " (does not exist)"
-                    tree_output += "\n"
+                    if os.path.isdir(full_path):
+                        tree_output += f"{prefix}{connector} {entry}/ # (catgit-ignored)\n"
+                    else:
+                        tree_output += f"{prefix}{connector} {entry} # (catgit-ignored)\n"
                 continue
 
             if os.path.isdir(full_path):
@@ -318,7 +367,7 @@ def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patte
                     continue
 
                 if is_text_file(full_path):
-                    futures.append(executor.submit(process_file, full_path))
+                    futures.append(executor.submit(process_file, full_path, extra_delimiter))
                     tree_output += f"{prefix}{connector} {entry}\n"
                 else:
                     tree_output += f"{prefix}{connector} {entry} [Binary/Non-text]\n"
@@ -333,8 +382,23 @@ def concatenate_and_generate_tree(path, ignored_git_files, compiled_catgit_patte
             except Exception as e:
                 logger.error(f"Failed to process a file with threading: {e}")
 
-    return tree_output, ''.join(concatenated_output)
+    return tree_output, '\n'.join(concatenated_output)
 
+# configure your default editor if not found
+def configure_editor(config, config_path):
+    """Prompt the user to configure a valid editor and update the configuration."""
+    while True:
+        editor = input("Enter a valid editor command (e.g., nano, vim, gedit) or press Enter to cancel: ").strip()
+        if not editor:  # User cancels the input
+            print("Editor setup canceled. Falling back to terminal output.")
+            return None
+        if check_editor_availability(editor):
+            update_config(config_path, 'Defaults', 'editor_command', editor)
+            print(f"Editor '{editor}' configured successfully.")
+            return editor
+        print(f"The editor '{editor}' is not available. Please try again.")
+
+# main loop
 def main():
     parser = argparse.ArgumentParser(description='Concatenate and display contents of a Git project.')
     
@@ -367,6 +431,8 @@ def main():
 
     output_method = config['Defaults']['output_method']
     editor_command = config['Defaults']['editor_command']
+    ignore_gitignored = config.getboolean('Defaults', 'ignore_gitignored')
+    display_gitignored_files = config.getboolean('Defaults', 'display_gitignored_files')
     include_tree_view = config.getboolean('Defaults', 'include_tree_view_in_file')
     treat_non_git_as_error = config.getboolean('Defaults', 'treat_non_git_as_error')
     catgitignore_enabled = config.getboolean('Defaults', 'catgitignore_enabled')
@@ -376,23 +442,27 @@ def main():
     catgitinclude_enabled = config.getboolean('Defaults', 'catgitinclude_enabled')
     catgitinclude_file = config['Defaults']['catgitinclude_file']
     hide_nonexistent_gitignored = config.getboolean('Defaults', 'hide_nonexistent_gitignored')
+    use_extra_delimiter = config.getboolean('Defaults', 'use_extra_delimiter')
+    extra_delimiter_type = config['Defaults']['extra_delimiter_type']
 
     # Load and clean always_exclude_dirs
     always_exclude_dirs = [dir.strip() for dir in config.get('Defaults', 'always_exclude_dirs').split(',')]
     logger.debug(f"Always Exclude Dirs: {always_exclude_dirs}")
+
+    # Set extra_delimiter to empty string if use_extra_delimiter is False
+    extra_delimiter = extra_delimiter_type if use_extra_delimiter else ''
 
     if args.editor:
         if isinstance(args.editor, str):
             editor_command = args.editor
         output_method = 'editor'
 
-    if args.editor and not check_editor_availability(editor_command):
-        new_editor = get_valid_editor(editor_command)
+    if output_method == 'editor' and not check_editor_availability(editor_command):
+        print(f"The configured editor '{editor_command}' is not found.")
+        new_editor = configure_editor(config, config_path)
         if new_editor:
             editor_command = new_editor
-            update_config(config_path, 'Defaults', 'editor_command', new_editor)
         else:
-            print("No valid editor provided, falling back to the terminal output.")
             output_method = 'terminal'
 
     if not is_git_repository(args.path):
@@ -445,18 +515,27 @@ def main():
             markup_catgitignored_files,
             display_catgitignored_files,
             always_exclude_dirs,
+            ignore_gitignored,
+            display_gitignored_files,
             include_only=include_only,
             included_files=included_files,
-            included_dirs=included_dirs
+            included_dirs=included_dirs,
+            hide_nonexistent_gitignored=hide_nonexistent_gitignored,
+            extra_delimiter=extra_delimiter
         )
 
     # Generate the output string
-    output = f"[ Project overview generated using `catgit` (v{version_number}) | Original Project URL: {project_url} ]\n\n"
+    output = f"==== [ Project overview generated using `catgit` (v{version_number}) ] ====\n==== [ This directory tree's Git URL: {project_url} ] ====\n\n"
     if include_tree_view:
         if include_only:
-            output += f"Directory structure (NOTE: `catgit` is in include-only mode, only these files from the directory tree are included):\n{tree_view}\n\n"
+            tree_header = "Directory structure (NOTE: `catgit` is in include-only mode, only these files from the directory tree are included):"
         else:
-            output += f"Directory structure:\n{tree_view}\n\n"
+            tree_header = "Directory structure:"
+
+        if use_extra_delimiter:
+            output += f"{extra_delimiter}\n{tree_header}\n{tree_view}{extra_delimiter}\n\n"
+        else:
+            output += f"{tree_header}\n{tree_view}\n\n"
 
     if concatenated_output:
         output += concatenated_output

@@ -88,6 +88,10 @@ catgit --help
 ```
 
 ## Changes
+- `0.11.4` - support added for configurable extra delimiters (i.e. markdown triple-backticks; enabled by default)
+    - see `config.ini` for more
+    - added autoconfig to default editor when i.e. listing `catgit . --editor` and no suitable editor is set.
+    - fixed `.gitignore` and `.catgitignore` rules and how they apply.
 - `0.11.3` - fixes to ignore/include file reading and traversal rules
 - `0.11.2` - added the `.catgitinclude` feature
     - this allows to only print out selected files from the project, as listed in the include file
