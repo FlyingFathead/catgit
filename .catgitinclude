@@ -1,0 +1,3 @@
+# list your files here that you _only_ wish to include in the selective printout
+# then, run with i.e.: `catgit . --editor --includedonly`
+README.md

@@ -1,8 +1,18 @@
+import re
 from setuptools import setup, find_packages
+
+# Extract the version number from catgit.py
+def get_version():
+    with open('catgit/catgit.py', 'r') as file:
+        for line in file:
+            match = re.search(r'^version_number\s*=\s*[\'"]([^\'"]+)[\'"]', line)
+            if match:
+                return match.group(1)
+    raise RuntimeError("Unable to find version string in catgit.py! Make sure you have the git repo cloned properly from: https://github.com/FlyingFathead/catgit")
 
 setup(
     name='catgit',
-    version='0.11.1',
+    version=get_version(),  # Use the extracted version
     author='FlyingFathead',
     author_email='flyingfathead@protonmail.com',
     packages=find_packages(),

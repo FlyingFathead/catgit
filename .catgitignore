@@ -1,0 +1,3 @@
+# this works the same way as i.e. `.gitignore` does;
+# just add in a list of files to ignore in the project, and `catgit` will ignore them.
+# README.md

@@ -89,7 +89,19 @@ catgit /path/to/your/project/ --editor
 
 You will be prompted for an editor if a default isn't found. You can use i.e. `vim`, `nano` etc on Linux, `notepad` on Windows.
 
+## Help
+
+Help for using `catgit` is available by typing:
+
+```bash
+catgit --help
+```
+
 ## Changes
+- `0.11.2` - added the `.catgitinclude` feature
+    - this allows to only print out selected files from the project, as listed in the include file
+    - the logic is similar to `.gitignore` (or `.catgitignore`), except it's files to _include_, not to _exclude_
+    - can be utilized with `--includeonly` cmdline flag
 - `0.11.1` - subprocess optimization (speeds up `catgit` on larger projects)
 - `0.11.0` - added `.catgitignore` functionality to ignore files
     - works the same way as `.gitignore`, is useful for selective project outputs
@@ -106,7 +118,7 @@ You will be prompted for an editor if a default isn't found. You can use i.e. `v
 
 ## Credits
 
-`catgit` was developed by FlyingFathead with contributions from ChaosWhisperer. 
+`catgit` was developed by [FlyingFathead](https://github.com/FlyingFathead) with digital ghost code contributions from ChaosWhisperer. 
 
 ## About `catgit`
 
