@@ -1,6 +1,10 @@
 # catgit
 
-**_`catgit` is a Python-based cli tool to dump out an entire directory structure or a git project in a `cat`-esque way or to pass it along into a text editor into a single file_**
+**_`catgit` is a Python-based cli tool to dump out an entire directory structure or a git project in a `cat`-esque way or to pass it along into a text editor into a single output or text file_**
+
+## About `catgit`
+
+This tool is designed to streamline the process of reviewing project contents, making it a neat little utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
 
 `catgit` is intended to display the contents of a git project (or any directory tree for that matter) in a consolidated, readable format directly in your terminal or through a specified text editor. It provides a quick overview of the project's structure, including ignored files based on your `.gitignore` settings, and can output all readable files sequentially.
 
@@ -114,10 +118,6 @@ catgit --help
 ## Credits
 
 `catgit` was developed by [FlyingFathead](https://github.com/FlyingFathead) with digital ghost code contributions from ChaosWhisperer. 
-
-## About `catgit`
-
-This tool is designed to streamline the process of reviewing project contents, making it a neat little utility for developers who manage large or complex Git repositories and/or use LLM-based AI assistants to sort through their codebases.
 
 ## License
 
